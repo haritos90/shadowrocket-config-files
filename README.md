@@ -1,4 +1,4 @@
-# shadowrocket-config-files
+# Shadowrocket Config files
 
 Personal Shadowrocket configuration files for iOS and macOS.
 
