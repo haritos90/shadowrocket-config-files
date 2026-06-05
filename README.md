@@ -144,13 +144,14 @@ Enable in **Settings > Update > Config** (e.g. every 24 hours). Requires **iOS S
 
 ---
 
+## Config file reference
 
+> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05). Check that repo periodically for new commits and update accordingly.
+>
+> Where a parameter is configured in `h90_main.conf`, the examples below reflect its actual values from that profile.
 
-## Documentation reference
-
-> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05).
-
-## Shadowrocket settings
+<details>
+<summary>Expand full reference</summary>
 
 ### Global Routing
 
@@ -173,8 +174,6 @@ Shadowrocket has four Global Routing modes, set from **Home > Global Routing**:
 | None | TUN mode. All network requests are processed through the TUN interface. Equivalent to `compatibility-mode = 3` in the config file. |
 
 ---
-
-# Shadowrocket Config file guide
 
 ### [General]
 
@@ -400,7 +399,45 @@ Rewrites HTTP(S) request URLs before the request is sent. Applied regardless of 
 
 The `always-reject-url-rewrite` implicit parameter controls whether `reject` rules apply outside Config routing mode.
 
-**Syntax:** `<regex> <replacement> <type>`
+**Syntax:** `<url-regex> <replacement> <type>`
+
+Each rule matches the full request URL with a regular expression, then replaces it with the replacement string.
+
+<details>
+<summary>Regex syntax reference</summary>
+
+| Pattern | Meaning | Example |
+|---|---|---|
+| `.` | Any single character | `a.c` matches `abc`, `a1c` |
+| `*` | Zero or more of the preceding | `ab*c` matches `ac`, `abc`, `abbc` |
+| `+` | One or more of the preceding | `ab+c` matches `abc`, `abbc` but not `ac` |
+| `?` | Zero or one of the preceding; or makes quantifier non-greedy | `colou?r` matches `color` and `colour` |
+| `^` | Start of string | `^https` matches only strings starting with `https` |
+| `$` | End of string | `\.js$` matches strings ending with `.js` |
+| `\.` | Literal dot (escape it — unescaped `.` matches any character) | `example\.com` |
+| `[abc]` | Any one of the characters inside | `[Hh]ttp` matches `Http` or `http` |
+| `[^abc]` | Any character NOT in the set | `[^/]+` matches a path segment with no slashes |
+| `(abc)` | Capturing group — can be referenced in replacement as `$1`, `$2` … | `(www\.)?(example\.com)` |
+| `a\|b` | Alternation — matches `a` or `b` | `http\|https` |
+| `https?` | The `?` makes `s` optional | matches `http` and `https` |
+
+**Common URL patterns:**
+
+```
+# Match any HTTP or HTTPS URL
+^https?://
+
+# Match a domain with or without www
+^https?://(www\.)?example\.com
+
+# Capture the path after the domain and reuse it in the replacement
+^https?://old\.example\.com(/.*) https://new.example.com$1 HEADER
+
+# Match any URL containing /ads/ in the path
+^https?://[^/]+/ads/
+```
+
+</details>
 
 ```
 ^https?://(www\.)?g\.cn https://www.google.com 302
@@ -422,7 +459,7 @@ Modifies HTTP request or response headers. Useful for adding authentication, str
   - `header-add` — adds a header field with a value
   - `header-replace` — replaces the value of an existing header field
   - `header-replace-regex` — replaces a header value using a regular expression
-- **expression**: a regular expression matching the target URL
+- **expression**: a regular expression matching the target URL — see [URL Rewrite regex syntax](#url-rewrite) for reference
 
 Commonly used header fields: `Content-Type`, `User-Agent`, `Accept-Language`, `Authorization`, `Host`, `Referer`, `Cookie`, `X-Forwarded-For`, `Location`.
 
@@ -441,7 +478,7 @@ Modifies HTTP request or response body content. Supports [jq](https://jqlang.org
   - `http-response` — applies to the response body
   - `http-request-jq` — processes the request body using jq syntax
   - `http-response-jq` — processes the response body using jq syntax
-- **expression**: a regular expression matching the target URL
+- **expression**: a regular expression matching the target URL — see [URL Rewrite regex syntax](#url-rewrite) for reference
 
 Useful for modifying API responses, stripping unwanted fields, or injecting content into pages. Requires HTTPS Decryption to be enabled for HTTPS traffic.
 
@@ -557,14 +594,25 @@ For all types except `select`, Shadowrocket uses the result of the most recent t
 
 #### Server filtering with REGEX
 
-Use `policy-regex-filter` to select Servers from a subscription by name pattern:
+Use `policy-regex-filter` to select Servers from a subscription by name pattern. The regex is matched against each **Server name** (not URL).
 
-| Goal | Pattern |
-|---|---|
-| Contains A and B | `(?=.*(A))^(?=.*(B))^.*$` |
-| Contains A or B | `A\|B` |
-| Excludes A and B | `^((?!(A\|B)).)*$` |
-| Contains A, excludes B | `(?=.*(A))^((?!(B)).)*$` |
+<details>
+<summary>REGEX filter patterns</summary>
+
+| Goal | Pattern | Example match |
+|---|---|---|
+| Contains keyword A | `A` | `HK` matches `HK 01`, `HK Premium` |
+| Contains A or B | `A\|B` | `HK\|Hong Kong` |
+| Contains A and B | `(?=.*(A))(?=.*(B)).*` | `(?=.*(HK))(?=.*(01)).*` matches `HK 01` but not `HK 02` |
+| Excludes A | `^((?!(A)).)*$` | `^((?!(Premium)).)*$` excludes any Server with "Premium" |
+| Excludes A and B | `^((?!(A\|B)).)*$` | `^((?!(Premium\|Trial)).)*$` |
+| Contains A, excludes B | `(?=.*(A))^((?!(B)).)*$` | `(?=.*(HK))^((?!(Premium)).)*$` — HK but not Premium |
+
+**How the lookahead patterns work:**
+
+`(?=.*(HK))` is a positive lookahead — it asserts that `HK` appears somewhere in the string without consuming characters. Chaining two lookaheads (`(?=.*(A))(?=.*(B))`) requires both to be present anywhere in the name. `^((?!(A)).)*$` uses a negative lookahead repeated for every character position to reject any string containing `A`.
+
+</details>
 
 #### Subscription-based Group
 
@@ -650,4 +698,6 @@ Policies can also be a Proxy Group name, subscription name, or individual Server
 ```
 DOMAIN,ad.example.com,REJECT,pre-matching
 ```
+
+</details>
 
