@@ -144,9 +144,13 @@ Enable in **Settings > Update > Config** (e.g. every 24 hours). Requires **iOS S
 
 ---
 
-## Config file reference
 
-> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05). Check that repo for newer commits and update accordingly.
+
+## Documentation reference
+
+> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05).
+
+## Shadowrocket settings
 
 ### Global Routing
 
@@ -169,6 +173,8 @@ Shadowrocket has four Global Routing modes, set from **Home > Global Routing**:
 | None | TUN mode. All network requests are processed through the TUN interface. Equivalent to `compatibility-mode = 3` in the config file. |
 
 ---
+
+# Shadowrocket Config file guide
 
 ### [General]
 
