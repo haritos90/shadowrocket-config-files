@@ -1,6 +1,6 @@
 # Shadowrocket Config files
 
-Personal Shadowrocket configuration files for iOS and macOS.
+My version of Shadowrocket Configuration files for iOS and macOS that can be configured for many scenarios. Inlcudes detailed descriptions of all known parameters of Shadowrocket Configuration files.
 
 ## Profiles
 
