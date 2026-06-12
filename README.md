@@ -6,7 +6,7 @@ Personal Shadowrocket configuration files for iOS and macOS.
 
 | File | Description | Strategy |
 |---|---|---|
-| [h90_main.conf](h90_main.conf) | Main profile. Routes selected Russian domains and subnets through a proxy; everything else is direct. Encrypted DNS only (Cloudflare + Google DoT/DoH). | Allowlist → PROXY, FINAL → DIRECT |
+| [h90_main.conf](h90_main.conf) | Main profile. Routes required domains and subnets based on rules through a proxy; everything else is direct. Has encrypted DNS enabled (Cloudflare + Google DoT/DoH). | Allowlist → PROXY, FINAL → DIRECT |
 | [h90_direct.conf](h90_direct.conf) | Direct profile for trusted networks (e.g. home WiFi where the router already handles routing). All traffic goes direct, system DNS. Designed to be used as the config for a Scene on trusted networks. | No rules, FINAL → DIRECT |
 
 ### Raw URLs (paste to Shadowrocket Config to download)
