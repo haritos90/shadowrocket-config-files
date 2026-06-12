@@ -6,53 +6,112 @@ Personal Shadowrocket configuration files for iOS and macOS.
 
 | File | Description | Strategy |
 |---|---|---|
-| [h90_main.conf](h90_main.conf) | Main profile. Routes selected traffic through a proxy; everything else is direct. Encrypted DNS only (Cloudflare + Google DoT/DoH). | Allowlist → PROXY, FINAL → DIRECT |
+| [h90_main.conf](h90_main.conf) | Main profile. Routes selected Russian domains and subnets through a proxy; everything else is direct. Encrypted DNS only (Cloudflare + Google DoT/DoH). | Allowlist → PROXY, FINAL → DIRECT |
+| [h90_direct.conf](h90_direct.conf) | Direct profile for trusted networks (e.g. home WiFi where the router already handles routing). All traffic goes direct, system DNS. Designed to be used as the config for a Scene on trusted networks. | No rules, FINAL → DIRECT |
 
-To install, copy the raw file URL and add it in Shadowrocket under **Config → +**.
+Raw URLs:
 
-Raw URL:
 ```
 https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/master/h90_main.conf
+https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/master/h90_direct.conf
 ```
 
-## Legal Notice
+## Installation
 
-This software is intended for development, testing, and research purposes only.
+1. Copy the raw URL(s) above.
+2. In Shadowrocket: **Config** tab → **+** (top right) → paste the URL → **Download**.
+3. Tap the downloaded config to set it as active (checkmark appears).
 
-The author does not provide any guarantees regarding:
+**After installation:**
 
-- availability of network access
-- compatibility with specific services
-- compliance with any external restrictions
+- **Home > Global Routing** → set to **Config** for a single profile, or **Scene** when using multiple profiles (see [Scene](#scene) below).
+- **Settings > UDP > Enable Forwarding** → turn on.
+- Add your proxy Server(s) and connect.
 
-Users are solely responsible for how they use this software and must comply with applicable laws.
+**Auto-update:** Enable in **Settings > Update > Config** (e.g. every 24 hours). Requires **iOS Settings > General > Background App Refresh > Shadowrocket** to be on.
 
-**Usage Restrictions**
+## Scene
 
-This software is not intended to be used for bypassing access restrictions or violating applicable laws. The author does not support or encourage such use.
+Scene mode makes Shadowrocket automatically switch routing based on network conditions. This is useful when you want proxy routing on untrusted networks but want to go fully direct on trusted ones (e.g. home WiFi where the router already handles routing at the network level).
+
+**How the two profiles work together:**
+
+| Scene condition | Config file | Effect |
+|---|---|---|
+| Home WiFi (trusted, router handles routing) | `h90_direct.conf` | All traffic direct, system DNS |
+| All other networks (cellular, unknown WiFi) | `h90_main.conf` | Selective proxy via allowlist rules, encrypted DNS |
+
+A separate config file is needed for the trusted-network Scene because Shadowrocket reads config settings (DNS, skip-proxy, TUN routes, etc.) even when routing is set to Direct. The settings in `h90_main.conf` — encrypted DNS, IPv6 enabled — are not appropriate for a home network where the router handles everything.
+
+**Setup:**
+
+1. Install both config files (see [Installation](#installation) above).
+2. **Home > Global Routing** → tap **Scene** → **+** to create a new Scene.
+3. **Scene for home WiFi:** set Condition to Wi-Fi SSID → enter your home network name. Set Config to `h90_direct.conf`.
+4. **Scene for everything else:** set as the default/fallback Scene (no SSID condition). Set Config to `h90_main.conf`.
+5. Set **Home > Global Routing** to **Scene**.
 
 ---
 
 ## How it works
 
-The profile uses an **allowlist** approach: only traffic explicitly matched by a rule-set is proxied. Everything else goes direct.
+### h90_main.conf
+
+Uses an **allowlist** approach: only traffic explicitly matched by a rule-set is proxied. Everything else goes direct.
 
 ```
 Matched rule-sets  →  PROXY
 Everything else    →  DIRECT
 ```
 
-This keeps the proxy load minimal and avoids routing unnecessary traffic through a Server. Rule-sets are external `.list` files fetched from GitHub; Shadowrocket can auto-update them on a schedule.
+Rule-sets are external `.list` files fetched from GitHub; Shadowrocket can auto-update them on a schedule. DNS is resolved exclusively via encrypted resolvers — all DNS traffic on port 53 is hijacked to enforce this.
 
-DNS is handled entirely via encrypted resolvers (Cloudflare and Google, DoT + DoH). All DNS traffic on port 53 is hijacked to enforce this.
+### h90_direct.conf
+
+No rules — all traffic goes directly via the `FINAL,DIRECT` fallback. DNS uses the system resolver (typically the home router). Intentionally minimal: the same TUN/skip-proxy settings are kept for network compatibility, but all proxy-specific DNS configuration is removed.
+
+---
+
+## Key settings
+
+### h90_main.conf
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `ipv6` | true | IPv6 enabled; IPv4 takes priority |
+| `prefer-ipv6` | false | |
+| `dns-server` | Cloudflare + Google DoT/DoH | See [DNS](#dns) |
+| `hijack-dns` | :53 | Intercepts all DNS on port 53 |
+| `private-ip-answer` | true | Allows private IP responses from DNS |
+| `dns-direct-system` | false | Direct traffic also uses encrypted DNS |
+| `dns-direct-fallback-proxy` | true | Uses proxy if direct DNS resolution fails |
+| `udp-policy-not-supported-behaviour` | REJECT | UDP dropped if Server doesn't support forwarding |
+| `icmp-auto-reply` | false | Ping auto-reply disabled |
+
+### h90_direct.conf
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `ipv6` | false | IPv6 disabled |
+| `prefer-ipv6` | false | |
+| `dns-server` | system | Uses router/system DNS |
+| `fallback-dns-server` | system | |
+| `hijack-dns` | :53 | Intercepts DNS on port 53 |
+| `private-ip-answer` | true | Allows private IP responses from DNS |
+| `dns-direct-system` | true | Direct traffic uses system DNS |
+| `dns-direct-fallback-proxy` | true | Uses proxy if direct DNS fails |
+| `udp-policy-not-supported-behaviour` | REJECT | |
+| `icmp-auto-reply` | false | |
+
+---
 
 ## Rule-sets
 
 Rule-sets are maintained in a separate repository: **[haritos90/allow-domains](https://github.com/haritos90/allow-domains)**. That repo contains the full list of available domain and subnet lists, how they are built, and what each covers.
 
-The table below shows the current configuration of `h90_main.conf` as an example. `no-resolve` on subnet rules means domain requests skip IP-based matching — only already-resolved IPs are checked.
+`no-resolve` on subnet rules means domain requests skip IP-based matching — only already-resolved IPs are checked.
 
-### Current configuration
+### Current configuration (h90_main.conf)
 
 | Rule-set | Raw URL | Policy |
 |---|---|---|
@@ -62,16 +121,14 @@ The table below shows the current configuration of `h90_main.conf` as an example
 
 ### Customising rule-sets
 
-The [haritos90/allow-domains](https://github.com/haritos90/allow-domains) repository provides both combined and per-category lists. Two common approaches:
+Two common approaches:
 
 - **Single Server** — use the combined lists (`all-surge.list`) and route everything matched to one PROXY policy.
-- **Split by category** — use per-category lists and assign each to a different Server or Proxy Group. To avoid overlap between the combined list and individual categories, use the `minus-*` files from that repo, which subtract a given category from the combined set.
+- **Split by category** — use per-category lists and assign each to a different Server or Proxy Group. To avoid overlap with the combined list, use the `minus-*` files from that repo, which subtract a given category from the combined set.
 
 See the [allow-domains README](https://github.com/haritos90/allow-domains#readme) for the full list of available files and instructions.
 
 ### Managing rules via Shadowrocket UI
-
-Rules can be added, removed, or reordered without editing the config file in plain text mode.
 
 **To add a rule-set:**
 
@@ -82,17 +139,16 @@ Rules can be added, removed, or reordered without editing the config file in pla
 5. Set **Policy** to `PROXY` or `DIRECT` as needed.
 6. Tap **Save**. Drag to reorder if necessary — rules are matched top to bottom.
 
-**To remove a rule-set:**
+**To remove a rule-set:** swipe left on the rule → **Delete**.
 
-In the same Rules list, swipe left on the rule and tap **Delete**.
-
-**To change the policy on an existing rule:**
-
-Tap the rule to open it, change the **Policy** field, then save.
+**To change the policy on an existing rule:** tap the rule → change the **Policy** field → save.
 
 > Rule-sets added via the UI are saved into the config file. After making changes, tap **Done** to apply them.
 
-## DNS
+---
+
+<details>
+<summary>DNS (h90_main.conf)</summary>
 
 Primary DNS resolvers (parallel querying, first response wins):
 
@@ -114,44 +170,18 @@ Fallback DNS (used if primary fails or times out after 2 s):
 | `2a02:6b8::feed:bad` | plain, IPv6 |
 | system DNS | last resort |
 
-## Key settings
+`h90_direct.conf` uses `dns-server = system` — no encrypted DNS, the home router handles resolution.
 
-| Parameter | Value | Notes |
-|---|---|---|
-| `ipv6` | true | IPv6 enabled; IPv4 takes priority |
-| `prefer-ipv6` | false | |
-| `hijack-dns` | :53 | Intercepts all DNS on port 53 |
-| `private-ip-answer` | true | Allows private IP responses from DNS |
-| `dns-direct-fallback-proxy` | true | Uses proxy if direct DNS resolution fails |
-| `udp-policy-not-supported-behaviour` | REJECT | UDP dropped if the matched Server doesn't support forwarding |
-| `icmp-auto-reply` | false | Ping auto-reply disabled |
-
-## Installation
-
-1. Copy the raw URL of the config file (see [Profiles](#profiles) above).
-2. In Shadowrocket: **Config** tab → **+** (top right) → paste the URL → **Download**.
-3. Tap the downloaded config to set it as active (checkmark appears).
-
-**After installation:**
-
-- **Home > Global Routing** → set to **Config**.
-- **Settings > UDP > Enable Forwarding** → turn on.
-- Add your proxy Server(s) and connect.
-
-**Auto-update:**
-
-Enable in **Settings > Update > Config** (e.g. every 24 hours). Requires **iOS Settings > General > Background App Refresh > Shadowrocket** to be on.
+</details>
 
 ---
 
-## Config file reference
+<details>
+<summary>Config file reference</summary>
 
 > Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05). Check that repo periodically for new commits and update accordingly.
 >
 > Where a parameter is configured in `h90_main.conf`, the examples below reflect its actual values from that profile.
-
-<details>
-<summary>Expand full reference</summary>
 
 ### Global Routing
 
@@ -701,3 +731,20 @@ DOMAIN,ad.example.com,REJECT,pre-matching
 
 </details>
 
+---
+
+## Legal Notice
+
+This software is intended for development, testing, and research purposes only.
+
+The author does not provide any guarantees regarding:
+
+- availability of network access
+- compatibility with specific services
+- compliance with any external restrictions
+
+Users are solely responsible for how they use this software and must comply with applicable laws.
+
+**Usage Restrictions**
+
+This software is not intended to be used for bypassing access restrictions or violating applicable laws. The author does not support or encourage such use.
