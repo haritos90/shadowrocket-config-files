@@ -13,14 +13,14 @@ My version of Shadowrocket Configuration files for iOS and macOS that can be con
 
 **h90_main.conf:**
 ```
-https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/master/h90_main.conf
+https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/main/h90_main.conf
 ```
 
 Use it for *Global Routing = Config* or Scene where you need to proxy.
  
 **h90_direct.conf:**
 ```
-https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/master/h90_direct.conf
+https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/main/h90_direct.conf
 ```
 
 Use it for Scene where you want direct connection.
