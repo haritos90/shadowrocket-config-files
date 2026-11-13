@@ -186,7 +186,7 @@ Fallback DNS (used if primary fails or times out after 2 s):
 <details>
 <summary>Config file reference</summary>
 
-> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [2180f8cc](https://github.com/LOWERTOP/Shadowrocket/commit/2180f8cc63386bff9cfd0507d854f67a47c52b77) (2026-06-05). Check that repo periodically for new commits and update accordingly.
+> Based on [LOWERTOP/Shadowrocket](https://github.com/LOWERTOP/Shadowrocket) as of commit [9ff0cc15](https://github.com/LOWERTOP/Shadowrocket/commit/9ff0cc1564d528b9e77a863b39fc443b08cf98ae) (2026-10-17). Check that repo periodically for new commits and update accordingly.
 >
 > Where a parameter is configured in `h90_main.conf`, the examples below reflect its actual values from that profile.
 
@@ -201,7 +201,7 @@ Shadowrocket has four Global Routing modes, set from **Home > Global Routing**:
 | **Direct** | All traffic goes directly, but config settings (DNS, skip-proxy, etc.) are still applied.                                                                                                                                |
 | **Scene**  | Automatically switches between predefined Scenes that each have their own Routing mode and Config file. Useful for routing traffic only on certain networks (e.g. always proxy on cellular, go direct on trusted Wi-Fi). |
 
-**Enable Fallback** (`Home > Global Routing > Enable Fallback`): when the active Server fails (after 3 consecutive failures), Shadowrocket switches to a different Server at random. If a Proxy Group is selected via Easy Mode, fallback is limited to Servers within that Group.
+**Enable Fallback** (`Home > Global Routing > Enable Fallback`): when the active Server fails (after 3 consecutive failures), Shadowrocket switches to another available Server at random, not by Server order or latency. If a Proxy Group is selected via Easy Mode, fallback is limited to Servers within that Group.
 
 **Proxy Type** (`Settings > Proxy > Proxy Type`):
 
@@ -224,7 +224,7 @@ skip-proxy = 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,captive.a
 
 ---
 
-**`tun-excluded-routes`** — IP ranges that bypass the TUN interface entirely, allowing non-TCP protocols (UDP, ICMP, etc.) to pass through. The TUN interface can only handle TCP; everything else needs to be excluded here or it will be dropped.
+**`tun-excluded-routes`** — IP ranges that bypass the TUN interface entirely, allowing non-TCP protocols (UDP, ICMP, etc.) to pass through. The TUN interface can only handle TCP; everything else needs to be excluded here or it will be dropped. A list that contains `100.64.0.0/10` may interfere with Tailscale addresses.
 
 ```
 tun-excluded-routes = 10.0.0.0/8,100.64.0.0/10,...
@@ -246,7 +246,7 @@ Supported formats:
 | DNS-over-HTTPS (DoH)   | `https://dns.google/dns-query`  |
 | DNS-over-HTTP/3 (DoH3) | `h3://dns.alidns.com/dns-query` |
 | DNS-over-QUIC (DoQ)    | `quic://223.5.5.5`              |
-| DNS-over-TLS (DoT)     | `tls://1.1.1.1:853`             |
+| DNS-over-TLS (DoT)     | `tls://1.1.1.1`                 |
 
 Some DoH servers support HTTP/3; Shadowrocket tries it first. To disable: append `#no-h3` to the URL.
 
@@ -266,6 +266,10 @@ dns-server = https://dns.google/dns-query#ecs=120.76.0.0/14|2620:149:af0::10/56&
 ```
 
 `ecs-override=true` forces the specified subnet even if the client IP provides different geolocation data.
+
+---
+
+**`direct-dns-server`** — Resolves domains matched by DIRECT domain rules. When unset, `dns-server` is used. Direct resolution triggered by IP-based rules follows `dns-server`. If set and the query fails, `fallback-dns-server` is used.
 
 ---
 
@@ -558,6 +562,8 @@ Enables HTTPS decryption (man-in-the-middle) for specified domains. Required for
 
 HTTPS decryption is per-config: if you switch config files, re-enable it for the new one. To avoid reinstalling the certificate, use a certificate module.
 
+If certificate installation reports `No PKCS12 Certificates`, a certificate module was installed before the decryption certificate was installed and trusted. Remove the module and retry.
+
 **Multi-device setup:** If multiple devices share a config via iCloud, use the **ⓘ certificate copy/paste** function to transfer and install the same certificate on each device rather than generating new ones.
 
 **HTTP/2 MitM** (v2.2.81+): Shadowrocket can decrypt HTTPS traffic using HTTP/2. Enable via **Config > ⓘ > HTTPS Decryption > Man-in-the-Middle via HTTP/2**, or set `h2 = true` in `[MITM]`. If a module sets this, it overrides the config file setting.
@@ -614,25 +620,30 @@ To manage via UI: **Config > ⓘ > Proxy Groups**.
 
 #### Group types
 
-| Type           | Behaviour                                                                                                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `select`       | Manual selection. The user picks which policy (Server or Group) to use. In plain text, `select=0` picks the first policy, `select=1` the second, etc. |
-| `url-test`     | Automatically switches to the Server with the lowest latency, based on periodic tests.                                                                |
-| `fallback`     | Automatically switches to another available Server when the current one fails. Available Servers are determined by the most recent test.              |
-| `load-balance` | Distributes traffic across Servers in the Group. Requests to the same domain always use the same Server (sticky routing).                             |
-| `random`       | Randomly selects a Server for each request, regardless of domain.                                                                                     |
+| Type           | Behaviour                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `select`       | Manual selection. The user picks which policy (Server or Group) to use.                                                                  |
+| `url-test`     | Automatically switches to the Server with the lowest latency, based on periodic tests.                                                   |
+| `fallback`     | Automatically switches to another available Server when the current one fails. Available Servers are determined by the most recent test. |
+| `load-balance` | Distributes traffic across Servers in the Group. Requests to the same domain always use the same Server (sticky routing).                |
+| `random`       | Randomly selects a Server for each request, regardless of domain.                                                                        |
 
-For all types except `select`, Shadowrocket uses the result of the most recent test and runs the next test cycle asynchronously. If a Server fails between test cycles, the failed Server may still be used briefly — enable the rollback option to reduce this window.
+For all types except `select`, Shadowrocket uses the result of the most recent test and runs the next test cycle asynchronously. If a Server fails between test cycles, the failed Server may still be used briefly — lower the test interval or use Enable Fallback to reduce this window.
+
+**Sort by Ping** (below the Proxy Groups list, v2.2.91 (3405) and later) sorts the Servers of each Group by latency test result, lowest first. The switch applies to all Groups.
 
 #### Group parameters
 
-| Parameter   | Description                                                                                                                                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `interval`  | How often (in seconds) to re-run latency tests                                                                                                                      |
-| `timeout`   | Maximum time (in seconds) to wait for a test to complete before abandoning it                                                                                       |
-| `tolerance` | Minimum latency improvement (in ms) required before switching to a new winner                                                                                       |
-| `url`       | URL to test against (e.g. `https://cp.cloudflare.com/generate_204`)                                                                                                 |
-| `hidden`    | Set `hidden=1` to hide the Group from the UI. Useful for Groups used only as dependencies of rules, not directly by the user. Only configurable in plain text mode. |
+| Parameter             | Description                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interval`            | How often (in seconds) to re-run latency tests                                                                                                                      |
+| `timeout`             | Maximum time (in seconds) to wait for a test to complete before abandoning it                                                                                       |
+| `tolerance`           | Minimum latency improvement (in ms) required before switching to a new winner                                                                                       |
+| `url`                 | URL to test against (e.g. `https://cp.cloudflare.com/generate_204`)                                                                                                 |
+| `hidden`              | Set `hidden=1` to hide the Group from the UI. Useful for Groups used only as dependencies of rules, not directly by the user. Only configurable in plain text mode. |
+| `policy-select-name`  | Sub-policy selected in a `select` Group                                                                                                                             |
+| `select`              | Index of the sub-policy selected in an automatic-test Group: `0` is the first, `1` the second, and so on                                                            |
+| `policy-regex-filter` | Regular expression that filters Servers by name (see below)                                                                                                         |
 
 #### Server filtering with REGEX
 
@@ -719,20 +730,24 @@ IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
 
 #### Policies
 
-| Policy           | Behaviour                             |
-| ---------------- | ------------------------------------- |
-| `PROXY`          | Forwards traffic through a Server     |
-| `DIRECT`         | Direct connection, no Server          |
-| `REJECT`         | Returns HTTP 404, no body             |
-| `REJECT-200`     | Returns HTTP 200, no body             |
-| `REJECT-DICT`    | Returns HTTP 200 with `{}`            |
-| `REJECT-ARRAY`   | Returns HTTP 200 with `[]`            |
-| `REJECT-IMG`     | Returns HTTP 200 with a 1×1 pixel GIF |
-| `REJECT-TINYGIF` | Returns HTTP 200 with a 1×1 pixel GIF |
-| `REJECT-DROP`    | Drops the IP packet silently          |
-| `REJECT-NO-DROP` | Returns ICMP port unreachable         |
+| Policy           | Behaviour                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `PROXY`          | Forwards traffic through a Server, usually the one shown next to the switch on the Home page |
+| `DIRECT`         | Direct connection, no Server                                                                 |
+| `TAILSCALE`      | Forwards traffic through the Tailscale tunnel                                                |
+| `REJECT`         | Returns HTTP 404, no body                                                                    |
+| `REJECT-200`     | Returns HTTP 200, no body                                                                    |
+| `REJECT-DICT`    | Returns HTTP 200 with `{}`                                                                   |
+| `REJECT-ARRAY`   | Returns HTTP 200 with `[]`                                                                   |
+| `REJECT-IMG`     | Returns HTTP 200 with a 1×1 pixel GIF                                                        |
+| `REJECT-TINYGIF` | Returns HTTP 200 with a 1×1 pixel GIF                                                        |
+| `REJECT-VIDEO`   | Returns HTTP 200 with a blank MP4                                                            |
+| `REJECT-DROP`    | Drops the IP packet silently                                                                 |
+| `REJECT-NO-DROP` | Returns ICMP port unreachable                                                                |
 
 Policies can also be a Proxy Group name, subscription name, or individual Server name.
+
+`TAILSCALE` requires the Tailscale module (`Settings > Tailscale`, v2.2.89 (3314) and later). Example: `DOMAIN-SUFFIX,ts.net,TAILSCALE`.
 
 #### Policy extension flags
 
