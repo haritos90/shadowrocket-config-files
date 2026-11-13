@@ -4,21 +4,23 @@ My version of Shadowrocket Configuration files for iOS and macOS that can be con
 
 ## Profiles
 
-| File | Description | Strategy |
-|---|---|---|
-| [h90_main.conf](h90_main.conf) | Main profile. Routes required domains and subnets based on rules through a proxy; everything else is direct. Has encrypted DNS enabled (Cloudflare + Google DoT/DoH). | Allowlist → PROXY, FINAL → DIRECT |
-| [h90_direct.conf](h90_direct.conf) | Direct profile for trusted networks (e.g. home WiFi where the router already handles routing). All traffic goes direct, system DNS. Designed to be used as the config for a Scene on trusted networks. | No rules, FINAL → DIRECT |
+| File                               | Description                                                                                                                                                                                                                                                | Strategy                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| [h90_main.conf](h90_main.conf)     | Main profile. Routes required domains and subnets based on rules through a proxy; everything else is direct. Has encrypted DNS enabled for non-proxied domains and subnets (Yandex DoH/DoT). Proxied domains and subnets DNS resolution is done via proxy. | Allowlist → PROXY, FINAL → DIRECT |
+| [h90_direct.conf](h90_direct.conf) | Direct profile for trusted networks (e.g. home WiFi where the router already handles routing). All traffic goes direct, system DNS. Designed to be used as the config for a Scene on trusted networks.                                                     | No rules, FINAL → DIRECT          |
 
 ### Raw URLs (paste to Shadowrocket Config to download)
 
 **h90_main.conf:**
+
 ```
 https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/main/h90_main.conf
 ```
 
-Use it for *Global Routing = Config* or Scene where you need to proxy.
- 
+Use it for _Global Routing = Config_ or Scene where you need to proxy.
+
 **h90_direct.conf:**
+
 ```
 https://raw.githubusercontent.com/haritos90/shadowrocket-config-files/main/h90_direct.conf
 ```
@@ -45,10 +47,10 @@ Scene mode makes Shadowrocket automatically switch routing based on network cond
 
 **How the two profiles work together:**
 
-| Scene condition | Config file | Effect |
-|---|---|---|
-| Home WiFi (trusted, router handles routing) | `h90_direct.conf` | All traffic direct, system DNS |
-| All other networks (cellular, unknown WiFi) | `h90_main.conf` | Selective proxy via allowlist rules, encrypted DNS |
+| Scene condition                             | Config file       | Effect                                             |
+| ------------------------------------------- | ----------------- | -------------------------------------------------- |
+| Home WiFi (trusted, router handles routing) | `h90_direct.conf` | All traffic direct, system DNS                     |
+| All other networks (cellular, unknown WiFi) | `h90_main.conf`   | Selective proxy via allowlist rules, encrypted DNS |
 
 A separate config file is needed for the trusted-network Scene because Shadowrocket reads config settings (DNS, skip-proxy, TUN routes, etc.) even when routing is set to Direct. The settings in `h90_main.conf` — encrypted DNS, IPv6 enabled — are not appropriate for a home network where the router handles everything.
 
@@ -73,7 +75,7 @@ Matched rule-sets  →  PROXY
 Everything else    →  DIRECT
 ```
 
-Rule-sets are external `.list` files fetched from GitHub; Shadowrocket can auto-update them on a schedule. DNS is resolved exclusively via encrypted resolvers — all DNS traffic on port 53 is hijacked to enforce this.
+Rule-sets are external `.list` files fetched from GitHub; Shadowrocket can auto-update them on a schedule. Proxied domains are resolved by the proxy Server. Direct domains are resolved via an encrypted resolver, with the system resolver as fallback; all DNS traffic on port 53 is hijacked to enforce this.
 
 ### h90_direct.conf
 
@@ -85,32 +87,33 @@ No rules — all traffic goes directly via the `FINAL,DIRECT` fallback. DNS uses
 
 ### h90_main.conf
 
-| Parameter | Value | Notes |
-|---|---|---|
-| `ipv6` | true | IPv6 enabled; IPv4 takes priority |
-| `prefer-ipv6` | false | |
-| `dns-server` | Cloudflare + Google DoT/DoH | See [DNS](#dns) |
-| `hijack-dns` | :53 | Intercepts all DNS on port 53 |
-| `private-ip-answer` | true | Allows private IP responses from DNS |
-| `dns-direct-system` | false | Direct traffic also uses encrypted DNS |
-| `dns-direct-fallback-proxy` | true | Uses proxy if direct DNS resolution fails |
-| `udp-policy-not-supported-behaviour` | REJECT | UDP dropped if Server doesn't support forwarding |
-| `icmp-auto-reply` | false | Ping auto-reply disabled |
+| Parameter                            | Value          | Notes                                            |
+| ------------------------------------ | -------------- | ------------------------------------------------ |
+| `ipv6`                               | true           | IPv6 enabled; IPv4 takes priority                |
+| `prefer-ipv6`                        | false          |                                                  |
+| `dns-server`                         | Yandex DoH/DoT | See [DNS](#dns)                                  |
+| `fallback-dns-server`                | system         | Used if the primary fails or exceeds 2 s         |
+| `hijack-dns`                         | :53            | Intercepts all DNS on port 53                    |
+| `private-ip-answer`                  | true           | Allows private IP responses from DNS             |
+| `dns-direct-system`                  | false          | Direct traffic also uses encrypted DNS           |
+| `dns-direct-fallback-proxy`          | true           | Uses proxy if direct DNS resolution fails        |
+| `udp-policy-not-supported-behaviour` | REJECT         | UDP dropped if Server doesn't support forwarding |
+| `icmp-auto-reply`                    | false          | Ping auto-reply disabled                         |
 
 ### h90_direct.conf
 
-| Parameter | Value | Notes |
-|---|---|---|
-| `ipv6` | false | IPv6 disabled |
-| `prefer-ipv6` | false | |
-| `dns-server` | system | Uses router/system DNS |
-| `fallback-dns-server` | system | |
-| `hijack-dns` | :53 | Intercepts DNS on port 53 |
-| `private-ip-answer` | true | Allows private IP responses from DNS |
-| `dns-direct-system` | true | Direct traffic uses system DNS |
-| `dns-direct-fallback-proxy` | true | Uses proxy if direct DNS fails |
-| `udp-policy-not-supported-behaviour` | REJECT | |
-| `icmp-auto-reply` | false | |
+| Parameter                            | Value  | Notes                                |
+| ------------------------------------ | ------ | ------------------------------------ |
+| `ipv6`                               | false  | IPv6 disabled                        |
+| `prefer-ipv6`                        | false  |                                      |
+| `dns-server`                         | system | Uses router/system DNS               |
+| `fallback-dns-server`                | system |                                      |
+| `hijack-dns`                         | :53    | Intercepts DNS on port 53            |
+| `private-ip-answer`                  | true   | Allows private IP responses from DNS |
+| `dns-direct-system`                  | true   | Direct traffic uses system DNS       |
+| `dns-direct-fallback-proxy`          | true   | Uses proxy if direct DNS fails       |
+| `udp-policy-not-supported-behaviour` | REJECT |                                      |
+| `icmp-auto-reply`                    | false  |                                      |
 
 ---
 
@@ -122,9 +125,9 @@ Rule-sets are maintained in a separate repository: **[haritos90/allow-domains](h
 
 ### Current configuration (h90_main.conf)
 
-| Rule-set | Raw URL | Policy |
-|---|---|---|
-| All domains (combined) | [russia-all-surge.list](https://raw.githubusercontent.com/haritos90/allow-domains/main/Russia/russia-all-surge.list) | PROXY |
+| Rule-set                | Raw URL                                                                                                                   | Policy            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| All domains (combined)  | [russia-all-surge.list](https://raw.githubusercontent.com/haritos90/allow-domains/main/Russia/russia-all-surge.list)      | PROXY             |
 | IPv4 subnets (combined) | [Subnets/IPv4/all-surge.list](https://raw.githubusercontent.com/haritos90/allow-domains/main/Subnets/IPv4/all-surge.list) | PROXY, no-resolve |
 | IPv6 subnets (combined) | [Subnets/IPv6/all-surge.list](https://raw.githubusercontent.com/haritos90/allow-domains/main/Subnets/IPv6/all-surge.list) | PROXY, no-resolve |
 
@@ -159,25 +162,20 @@ See the [allow-domains README](https://github.com/haritos90/allow-domains#readme
 <details>
 <summary>DNS (h90_main.conf)</summary>
 
+`dns-server` resolves only domains routed DIRECT and the Server hostname. Proxied domains are resolved by the proxy Server, so the resolver does not affect what is proxied.
+
 Primary DNS resolvers (parallel querying, first response wins):
 
-| Resolver | Protocol | Notes |
-|---|---|---|
-| `2606:4700:4700::1112` / `2606:4700:4700::1002` | DoT :853, plain | Cloudflare for Families (malware blocking), IPv6 |
-| `1.1.1.2` / `1.0.0.2` | DoT :853, plain | Cloudflare for Families, IPv4 |
-| `security.cloudflare-dns.com` | DoH | Cloudflare for Families |
-| `2001:4860:4860::8888` / `2001:4860:4860::8844` | DoT :853, plain | Google, IPv6 |
-| `8.8.8.8` / `8.8.4.4` | DoT :853, plain | Google, IPv4 |
-| `dns.google` | DoH | Google |
+| Resolver                  | Protocol | Notes                              |
+| ------------------------- | -------- | ---------------------------------- |
+| `safe.dot.dns.yandex.net` | DoH      | Yandex DNS Safe (malware blocking) |
+| `77.88.8.88`              | DoT      | Yandex DNS Safe                    |
 
 Fallback DNS (used if primary fails or times out after 2 s):
 
-| Resolver | Protocol |
-|---|---|
-| `77.88.8.88` | DoT :853, plain |
-| `safe.dot.dns.yandex.net` | DoH |
-| `2a02:6b8::feed:bad` | plain, IPv6 |
-| system DNS | last resort |
+| Resolver   | Protocol                       |
+| ---------- | ------------------------------ |
+| system DNS | plain, provided by the network |
 
 `h90_direct.conf` uses `dns-server = system` — no encrypted DNS, the home router handles resolution.
 
@@ -196,21 +194,21 @@ Fallback DNS (used if primary fails or times out after 2 s):
 
 Shadowrocket has four Global Routing modes, set from **Home > Global Routing**:
 
-| Mode | Behaviour |
-|---|---|
-| **Config** | Traffic is routed according to the rules in the active config file. This is the normal operating mode. |
-| **Proxy** | All traffic is proxied, ignoring config rules. |
-| **Direct** | All traffic goes directly, but config settings (DNS, skip-proxy, etc.) are still applied. |
-| **Scene** | Automatically switches between predefined Scenes that each have their own Routing mode and Config file. Useful for routing traffic only on certain networks (e.g. always proxy on cellular, go direct on trusted Wi-Fi). |
+| Mode       | Behaviour                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Config** | Traffic is routed according to the rules in the active config file. This is the normal operating mode.                                                                                                                   |
+| **Proxy**  | All traffic is proxied, ignoring config rules.                                                                                                                                                                           |
+| **Direct** | All traffic goes directly, but config settings (DNS, skip-proxy, etc.) are still applied.                                                                                                                                |
+| **Scene**  | Automatically switches between predefined Scenes that each have their own Routing mode and Config file. Useful for routing traffic only on certain networks (e.g. always proxy on cellular, go direct on trusted Wi-Fi). |
 
 **Enable Fallback** (`Home > Global Routing > Enable Fallback`): when the active Server fails (after 3 consecutive failures), Shadowrocket switches to a different Server at random. If a Proxy Group is selected via Easy Mode, fallback is limited to Servers within that Group.
 
 **Proxy Type** (`Settings > Proxy > Proxy Type`):
 
-| Value | Behaviour |
-|---|---|
-| HTTP | System proxy mode. Connections Shadowrocket cannot handle via the proxy interface are handed over to TUN. |
-| None | TUN mode. All network requests are processed through the TUN interface. Equivalent to `compatibility-mode = 3` in the config file. |
+| Value | Behaviour                                                                                                                          |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP  | System proxy mode. Connections Shadowrocket cannot handle via the proxy interface are handed over to TUN.                          |
+| None  | TUN mode. All network requests are processed through the TUN interface. Equivalent to `compatibility-mode = 3` in the config file. |
 
 ---
 
@@ -242,27 +240,31 @@ tun-excluded-routes = 10.0.0.0/8,100.64.0.0/10,...
 
 Supported formats:
 
-| Format | Example |
-|---|---|
-| Plain DNS | `1.1.1.1` |
-| DNS-over-HTTPS (DoH) | `https://dns.google/dns-query` |
+| Format                 | Example                         |
+| ---------------------- | ------------------------------- |
+| Plain DNS              | `1.1.1.1`                       |
+| DNS-over-HTTPS (DoH)   | `https://dns.google/dns-query`  |
 | DNS-over-HTTP/3 (DoH3) | `h3://dns.alidns.com/dns-query` |
-| DNS-over-QUIC (DoQ) | `quic://223.5.5.5` |
-| DNS-over-TLS (DoT) | `tls://1.1.1.1:853` |
+| DNS-over-QUIC (DoQ)    | `quic://223.5.5.5`              |
+| DNS-over-TLS (DoT)     | `tls://1.1.1.1:853`             |
 
 Some DoH servers support HTTP/3; Shadowrocket tries it first. To disable: append `#no-h3` to the URL.
 
 **DNS-over-PROXY** — forwards DNS queries through a proxy Server instead of resolving locally:
+
 ```
 dns-server = https://dns.google/dns-query#proxy
 dns-server = https://dns.google/dns-query#proxy=ServerName
 ```
+
 The `proxy=name` form specifies a named Server; the name must be URL-encoded. If the Server name is incorrect, Shadowrocket falls back to the default Server.
 
 **ECS (EDNS Client Subnet)** — passes subnet information to the DNS server so it can return results optimised for a specific exit location rather than your actual client IP:
+
 ```
 dns-server = https://dns.google/dns-query#ecs=120.76.0.0/14|2620:149:af0::10/56&ecs-override=true
 ```
+
 `ecs-override=true` forces the specified subnet even if the client IP provides different geolocation data.
 
 ---
@@ -351,14 +353,14 @@ stun-response-ipv6 = ::1
 
 **`compatibility-mode`** — Sets a specific network compatibility mode. Takes precedence over the related toggle in Settings.
 
-| Value | Mode |
-|---|---|
-| 0 | Auto / Disable |
-| 1 | Proxy with Loopback Address |
-| 2 | Proxy Only |
-| 3 | TUN Only (same as `Settings > Proxy > Proxy Type = None`) |
-| 4 | Proxy without Loopback Address |
-| 5 | No Default Route |
+| Value | Mode                                                      |
+| ----- | --------------------------------------------------------- |
+| 0     | Auto / Disable                                            |
+| 1     | Proxy with Loopback Address                               |
+| 2     | Proxy Only                                                |
+| 3     | TUN Only (same as `Settings > Proxy > Proxy Type = None`) |
+| 4     | Proxy without Loopback Address                            |
+| 5     | No Default Route                                          |
 
 Other values may be used for compatibility with specific software; test before deploying.
 
@@ -382,11 +384,11 @@ Other values may be used for compatibility with specific software; test before d
 
 **`block-quic`** — Controls QUIC protocol blocking. QUIC runs over UDP/443 and can bypass proxy rules that only match TCP.
 
-| Value | Behaviour |
-|---|---|
-| `all-proxy` | Blocks QUIC only for proxied connections; direct connections can use QUIC normally. |
-| `all` | Blocks all QUIC connections (proxied and direct). Equivalent to the rule `AND,((PROTOCOL,UDP),(DST-PORT,443)),REJECT-NO-DROP`. |
-| `always-allow` | QUIC is never blocked. |
+| Value          | Behaviour                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `all-proxy`    | Blocks QUIC only for proxied connections; direct connections can use QUIC normally.                                            |
+| `all`          | Blocks all QUIC connections (proxied and direct). Equivalent to the rule `AND,((PROTOCOL,UDP),(DST-PORT,443)),REJECT-NO-DROP`. |
+| `always-allow` | QUIC is never blocked.                                                                                                         |
 
 ---
 
@@ -429,12 +431,12 @@ Rewrites HTTP(S) request URLs before the request is sent. Applied regardless of 
 
 **Rewrite types:**
 
-| Type | Behaviour |
-|---|---|
+| Type     | Behaviour                                                                                |
+| -------- | ---------------------------------------------------------------------------------------- |
 | `HEADER` | Rewrites the URL and continues with the modified request using the current proxy policy. |
-| `302` | Returns a 302 redirect to the client. |
-| `307` | Returns a 307 redirect to the client (method-preserving). |
-| `reject` | Rejects the request. |
+| `302`    | Returns a 302 redirect to the client.                                                    |
+| `307`    | Returns a 307 redirect to the client (method-preserving).                                |
+| `reject` | Rejects the request.                                                                     |
 
 The `always-reject-url-rewrite` implicit parameter controls whether `reject` rules apply outside Config routing mode.
 
@@ -445,20 +447,20 @@ Each rule matches the full request URL with a regular expression, then replaces 
 <details>
 <summary>Regex syntax reference</summary>
 
-| Pattern | Meaning | Example |
-|---|---|---|
-| `.` | Any single character | `a.c` matches `abc`, `a1c` |
-| `*` | Zero or more of the preceding | `ab*c` matches `ac`, `abc`, `abbc` |
-| `+` | One or more of the preceding | `ab+c` matches `abc`, `abbc` but not `ac` |
-| `?` | Zero or one of the preceding; or makes quantifier non-greedy | `colou?r` matches `color` and `colour` |
-| `^` | Start of string | `^https` matches only strings starting with `https` |
-| `$` | End of string | `\.js$` matches strings ending with `.js` |
-| `\.` | Literal dot (escape it — unescaped `.` matches any character) | `example\.com` |
-| `[abc]` | Any one of the characters inside | `[Hh]ttp` matches `Http` or `http` |
-| `[^abc]` | Any character NOT in the set | `[^/]+` matches a path segment with no slashes |
-| `(abc)` | Capturing group — can be referenced in replacement as `$1`, `$2` … | `(www\.)?(example\.com)` |
-| `a\|b` | Alternation — matches `a` or `b` | `http\|https` |
-| `https?` | The `?` makes `s` optional | matches `http` and `https` |
+| Pattern  | Meaning                                                            | Example                                             |
+| -------- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| `.`      | Any single character                                               | `a.c` matches `abc`, `a1c`                          |
+| `*`      | Zero or more of the preceding                                      | `ab*c` matches `ac`, `abc`, `abbc`                  |
+| `+`      | One or more of the preceding                                       | `ab+c` matches `abc`, `abbc` but not `ac`           |
+| `?`      | Zero or one of the preceding; or makes quantifier non-greedy       | `colou?r` matches `color` and `colour`              |
+| `^`      | Start of string                                                    | `^https` matches only strings starting with `https` |
+| `$`      | End of string                                                      | `\.js$` matches strings ending with `.js`           |
+| `\.`     | Literal dot (escape it — unescaped `.` matches any character)      | `example\.com`                                      |
+| `[abc]`  | Any one of the characters inside                                   | `[Hh]ttp` matches `Http` or `http`                  |
+| `[^abc]` | Any character NOT in the set                                       | `[^/]+` matches a path segment with no slashes      |
+| `(abc)`  | Capturing group — can be referenced in replacement as `$1`, `$2` … | `(www\.)?(example\.com)`                            |
+| `a\|b`   | Alternation — matches `a` or `b`                                   | `http\|https`                                       |
+| `https?` | The `?` makes `s` optional                                         | matches `http` and `https`                          |
 
 **Common URL patterns:**
 
@@ -561,6 +563,7 @@ HTTPS decryption is per-config: if you switch config files, re-enable it for the
 **HTTP/2 MitM** (v2.2.81+): Shadowrocket can decrypt HTTPS traffic using HTTP/2. Enable via **Config > ⓘ > HTTPS Decryption > Man-in-the-Middle via HTTP/2**, or set `h2 = true` in `[MITM]`. If a module sets this, it overrides the config file setting.
 
 **`hostname`**: comma-separated list of domains to decrypt. Wildcards supported. Prefix with `-` to exclude a domain:
+
 ```
 hostname = *.example.com, -secure.example.com
 ```
@@ -577,21 +580,21 @@ To edit via UI: **Config > ⓘ > Script**.
 
 **`type`** — when the script runs:
 
-| Type | Behaviour |
-|---|---|
-| `http-request` | Intercepts and can modify outgoing HTTP requests |
+| Type            | Behaviour                                         |
+| --------------- | ------------------------------------------------- |
+| `http-request`  | Intercepts and can modify outgoing HTTP requests  |
 | `http-response` | Intercepts and can modify incoming HTTP responses |
-| `event` | Runs when a specified system event occurs |
-| `rule` | Used as a custom rule (returns a policy decision) |
-| `dns` | Used as a custom DNS resolver |
-| `cron` | Runs on a schedule (cron expression) |
+| `event`         | Runs when a specified system event occurs         |
+| `rule`          | Used as a custom rule (returns a policy decision) |
+| `dns`           | Used as a custom DNS resolver                     |
+| `cron`          | Runs on a schedule (cron expression)              |
 
 **`engine`** — the JavaScript runtime to use:
 
-| Value | When to use |
-|---|---|
-| `auto` | Default; Shadowrocket selects automatically |
-| `jsc` | JavaScriptCore — fast, low overhead; best for `rule` and `dns` types |
+| Value     | When to use                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `auto`    | Default; Shadowrocket selects automatically                                                                         |
+| `jsc`     | JavaScriptCore — fast, low overhead; best for `rule` and `dns` types                                                |
 | `webview` | WKWebView — higher memory, better compatibility; best for complex scripts that parse large JSON or use browser APIs |
 
 For `http-request` and `http-response` types, Shadowrocket defaults to WebView when the `engine` parameter is not set. It is recommended to set it explicitly.
@@ -611,25 +614,25 @@ To manage via UI: **Config > ⓘ > Proxy Groups**.
 
 #### Group types
 
-| Type | Behaviour |
-|---|---|
-| `select` | Manual selection. The user picks which policy (Server or Group) to use. In plain text, `select=0` picks the first policy, `select=1` the second, etc. |
-| `url-test` | Automatically switches to the Server with the lowest latency, based on periodic tests. |
-| `fallback` | Automatically switches to another available Server when the current one fails. Available Servers are determined by the most recent test. |
-| `load-balance` | Distributes traffic across Servers in the Group. Requests to the same domain always use the same Server (sticky routing). |
-| `random` | Randomly selects a Server for each request, regardless of domain. |
+| Type           | Behaviour                                                                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `select`       | Manual selection. The user picks which policy (Server or Group) to use. In plain text, `select=0` picks the first policy, `select=1` the second, etc. |
+| `url-test`     | Automatically switches to the Server with the lowest latency, based on periodic tests.                                                                |
+| `fallback`     | Automatically switches to another available Server when the current one fails. Available Servers are determined by the most recent test.              |
+| `load-balance` | Distributes traffic across Servers in the Group. Requests to the same domain always use the same Server (sticky routing).                             |
+| `random`       | Randomly selects a Server for each request, regardless of domain.                                                                                     |
 
 For all types except `select`, Shadowrocket uses the result of the most recent test and runs the next test cycle asynchronously. If a Server fails between test cycles, the failed Server may still be used briefly — enable the rollback option to reduce this window.
 
 #### Group parameters
 
-| Parameter | Description |
-|---|---|
-| `interval` | How often (in seconds) to re-run latency tests |
-| `timeout` | Maximum time (in seconds) to wait for a test to complete before abandoning it |
-| `tolerance` | Minimum latency improvement (in ms) required before switching to a new winner |
-| `url` | URL to test against (e.g. `https://cp.cloudflare.com/generate_204`) |
-| `hidden` | Set `hidden=1` to hide the Group from the UI. Useful for Groups used only as dependencies of rules, not directly by the user. Only configurable in plain text mode. |
+| Parameter   | Description                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interval`  | How often (in seconds) to re-run latency tests                                                                                                                      |
+| `timeout`   | Maximum time (in seconds) to wait for a test to complete before abandoning it                                                                                       |
+| `tolerance` | Minimum latency improvement (in ms) required before switching to a new winner                                                                                       |
+| `url`       | URL to test against (e.g. `https://cp.cloudflare.com/generate_204`)                                                                                                 |
+| `hidden`    | Set `hidden=1` to hide the Group from the UI. Useful for Groups used only as dependencies of rules, not directly by the user. Only configurable in plain text mode. |
 
 #### Server filtering with REGEX
 
@@ -638,14 +641,14 @@ Use `policy-regex-filter` to select Servers from a subscription by name pattern.
 <details>
 <summary>REGEX filter patterns</summary>
 
-| Goal | Pattern | Example match |
-|---|---|---|
-| Contains keyword A | `A` | `HK` matches `HK 01`, `HK Premium` |
-| Contains A or B | `A\|B` | `HK\|Hong Kong` |
-| Contains A and B | `(?=.*(A))(?=.*(B)).*` | `(?=.*(HK))(?=.*(01)).*` matches `HK 01` but not `HK 02` |
-| Excludes A | `^((?!(A)).)*$` | `^((?!(Premium)).)*$` excludes any Server with "Premium" |
-| Excludes A and B | `^((?!(A\|B)).)*$` | `^((?!(Premium\|Trial)).)*$` |
-| Contains A, excludes B | `(?=.*(A))^((?!(B)).)*$` | `(?=.*(HK))^((?!(Premium)).)*$` — HK but not Premium |
+| Goal                   | Pattern                  | Example match                                            |
+| ---------------------- | ------------------------ | -------------------------------------------------------- |
+| Contains keyword A     | `A`                      | `HK` matches `HK 01`, `HK Premium`                       |
+| Contains A or B        | `A\|B`                   | `HK\|Hong Kong`                                          |
+| Contains A and B       | `(?=.*(A))(?=.*(B)).*`   | `(?=.*(HK))(?=.*(01)).*` matches `HK 01` but not `HK 02` |
+| Excludes A             | `^((?!(A)).)*$`          | `^((?!(Premium)).)*$` excludes any Server with "Premium" |
+| Excludes A and B       | `^((?!(A\|B)).)*$`       | `^((?!(Premium\|Trial)).)*$`                             |
+| Contains A, excludes B | `(?=.*(A))^((?!(B)).)*$` | `(?=.*(HK))^((?!(Premium)).)*$` — HK but not Premium     |
 
 **How the lookahead patterns work:**
 
@@ -677,6 +680,7 @@ Base-Group = url-test,Server1,Server2,url=https://cp.cloudflare.com/generate_204
 Rules determine which policy (PROXY, DIRECT, REJECT, or a Proxy Group) handles each connection. Matched top to bottom; first match wins.
 
 **Priority order:**
+
 1. Module rules override config file rules
 2. Rules are matched top to bottom
 3. Domain-based rules take priority over IP-based rules within the same compilation pass
@@ -684,48 +688,49 @@ Rules determine which policy (PROXY, DIRECT, REJECT, or a Proxy Group) handles e
 
 #### Rule types
 
-| Type | Matches | Example |
-|---|---|---|
-| `DOMAIN` | Exact domain name | `DOMAIN,www.example.com,DIRECT` |
-| `DOMAIN-SUFFIX` | Domain and all subdomains | `DOMAIN-SUFFIX,example.com,DIRECT` → matches `a.example.com` |
-| `DOMAIN-KEYWORD` | Any domain containing the keyword | `DOMAIN-KEYWORD,example,DIRECT` → matches `a.example.com` |
-| `DOMAIN-WILDCARD` | Domain pattern with `*` and `?` wildcards | `DOMAIN-WILDCARD,a*.example*.com,DIRECT` |
-| `IP-CIDR` | IPv4 or IPv6 address range | `IP-CIDR,192.168.1.0/24,DIRECT` |
-| `IP-ASN` | IP addresses belonging to an ASN | `IP-ASN,13335,PROXY` (Cloudflare) |
-| `GEOIP` | IP geolocation database | `GEOIP,RU,PROXY` |
-| `DST-PORT` | Destination port | `DST-PORT,443,DIRECT` |
-| `USER-AGENT` | User-Agent string (supports `*` wildcard) | `USER-AGENT,curl*,DIRECT` |
-| `URL-REGEX` | Full URL matched against a regex | `URL-REGEX,^https?://.+/ad\.js,REJECT` |
-| `RULE-SET` | External rule list (must include rule types) | `RULE-SET,https://…/list.list,PROXY` |
-| `DOMAIN-SET` | External domain list (no rule type prefix) | `DOMAIN-SET,https://…/domains.list,PROXY` |
-| `SCRIPT` | Custom JavaScript rule | `SCRIPT,my-rule-script,PROXY` |
-| `AND` | Logical AND of sub-rules | `AND,((PROTOCOL,UDP),(DST-PORT,443)),REJECT-NO-DROP` |
-| `OR` | Logical OR of sub-rules | `OR,((DST-PORT,80),(DST-PORT,443)),PROXY` |
-| `NOT` | Logical NOT of a sub-rule | `NOT,((DST-PORT,443)),DIRECT` |
-| `PROTOCOL` | Transport protocol (TCP/UDP) — only inside AND/OR/NOT | _(see AND example above)_ |
-| `FINAL` | Fallback when nothing else matches | `FINAL,DIRECT` |
+| Type              | Matches                                               | Example                                                      |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| `DOMAIN`          | Exact domain name                                     | `DOMAIN,www.example.com,DIRECT`                              |
+| `DOMAIN-SUFFIX`   | Domain and all subdomains                             | `DOMAIN-SUFFIX,example.com,DIRECT` → matches `a.example.com` |
+| `DOMAIN-KEYWORD`  | Any domain containing the keyword                     | `DOMAIN-KEYWORD,example,DIRECT` → matches `a.example.com`    |
+| `DOMAIN-WILDCARD` | Domain pattern with `*` and `?` wildcards             | `DOMAIN-WILDCARD,a*.example*.com,DIRECT`                     |
+| `IP-CIDR`         | IPv4 or IPv6 address range                            | `IP-CIDR,192.168.1.0/24,DIRECT`                              |
+| `IP-ASN`          | IP addresses belonging to an ASN                      | `IP-ASN,13335,PROXY` (Cloudflare)                            |
+| `GEOIP`           | IP geolocation database                               | `GEOIP,RU,PROXY`                                             |
+| `DST-PORT`        | Destination port                                      | `DST-PORT,443,DIRECT`                                        |
+| `USER-AGENT`      | User-Agent string (supports `*` wildcard)             | `USER-AGENT,curl*,DIRECT`                                    |
+| `URL-REGEX`       | Full URL matched against a regex                      | `URL-REGEX,^https?://.+/ad\.js,REJECT`                       |
+| `RULE-SET`        | External rule list (must include rule types)          | `RULE-SET,https://…/list.list,PROXY`                         |
+| `DOMAIN-SET`      | External domain list (no rule type prefix)            | `DOMAIN-SET,https://…/domains.list,PROXY`                    |
+| `SCRIPT`          | Custom JavaScript rule                                | `SCRIPT,my-rule-script,PROXY`                                |
+| `AND`             | Logical AND of sub-rules                              | `AND,((PROTOCOL,UDP),(DST-PORT,443)),REJECT-NO-DROP`         |
+| `OR`              | Logical OR of sub-rules                               | `OR,((DST-PORT,80),(DST-PORT,443)),PROXY`                    |
+| `NOT`             | Logical NOT of a sub-rule                             | `NOT,((DST-PORT,443)),DIRECT`                                |
+| `PROTOCOL`        | Transport protocol (TCP/UDP) — only inside AND/OR/NOT | _(see AND example above)_                                    |
+| `FINAL`           | Fallback when nothing else matches                    | `FINAL,DIRECT`                                               |
 
 When the same value is set for DOMAIN, DOMAIN-SUFFIX, DOMAIN-WILDCARD, and DOMAIN-KEYWORD simultaneously, only one will take effect.
 
 When a domain request hits an IP-based rule (IP-CIDR, IP-ASN, GEOIP), Shadowrocket queries local DNS to resolve the domain and checks the result against the rule. Add `no-resolve` to skip this for domain requests:
+
 ```
 IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
 ```
 
 #### Policies
 
-| Policy | Behaviour |
-|---|---|
-| `PROXY` | Forwards traffic through a Server |
-| `DIRECT` | Direct connection, no Server |
-| `REJECT` | Returns HTTP 404, no body |
-| `REJECT-200` | Returns HTTP 200, no body |
-| `REJECT-DICT` | Returns HTTP 200 with `{}` |
-| `REJECT-ARRAY` | Returns HTTP 200 with `[]` |
-| `REJECT-IMG` | Returns HTTP 200 with a 1×1 pixel GIF |
+| Policy           | Behaviour                             |
+| ---------------- | ------------------------------------- |
+| `PROXY`          | Forwards traffic through a Server     |
+| `DIRECT`         | Direct connection, no Server          |
+| `REJECT`         | Returns HTTP 404, no body             |
+| `REJECT-200`     | Returns HTTP 200, no body             |
+| `REJECT-DICT`    | Returns HTTP 200 with `{}`            |
+| `REJECT-ARRAY`   | Returns HTTP 200 with `[]`            |
+| `REJECT-IMG`     | Returns HTTP 200 with a 1×1 pixel GIF |
 | `REJECT-TINYGIF` | Returns HTTP 200 with a 1×1 pixel GIF |
-| `REJECT-DROP` | Drops the IP packet silently |
-| `REJECT-NO-DROP` | Returns ICMP port unreachable |
+| `REJECT-DROP`    | Drops the IP packet silently          |
+| `REJECT-NO-DROP` | Returns ICMP port unreachable         |
 
 Policies can also be a Proxy Group name, subscription name, or individual Server name.
 
