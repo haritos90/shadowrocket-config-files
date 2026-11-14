@@ -111,7 +111,7 @@ No rules — all traffic goes directly via the `FINAL,DIRECT` fallback. DNS uses
 | `hijack-dns`                         | :53    | Intercepts DNS on port 53            |
 | `private-ip-answer`                  | true   | Allows private IP responses from DNS |
 | `dns-direct-system`                  | true   | Direct traffic uses system DNS       |
-| `dns-direct-fallback-proxy`          | true   | Uses proxy if direct DNS fails       |
+| `dns-direct-fallback-proxy`          | false  | No proxy retry if direct DNS fails   |
 | `udp-policy-not-supported-behaviour` | REJECT |                                      |
 | `icmp-auto-reply`                    | false  |                                      |
 
