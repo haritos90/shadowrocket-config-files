@@ -227,7 +227,7 @@ skip-proxy = 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,captive.a
 **`tun-excluded-routes`** — IP ranges that bypass the TUN interface entirely, allowing non-TCP protocols (UDP, ICMP, etc.) to pass through. The TUN interface can only handle TCP; everything else needs to be excluded here or it will be dropped. A list that contains `100.64.0.0/10` may interfere with Tailscale addresses.
 
 ```
-tun-excluded-routes = 10.0.0.0/8,100.64.0.0/10,...
+tun-excluded-routes = 10.0.0.0/8,127.0.0.0/8,...,ff02::fb/128
 ```
 
 ---
